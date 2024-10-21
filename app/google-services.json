@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "223331450944",
+    "project_id": "stalker-1ac61",
+    "storage_bucket": "stalker-1ac61.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:223331450944:android:dc38f4b6a8b65d1bc79fa5",
+        "android_client_info": {
+          "package_name": "com.ceron.stalker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrNnhy-auB5N3zIxz0pVdNsXSNBm7oFFo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
