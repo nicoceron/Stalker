@@ -172,7 +172,7 @@ class RegisterActivity : AppCompatActivity() {
             File(getExternalFilesDir(Environment.DIRECTORY_PICTURES).toString() + "/" + imageFileName)
         userPhotoPath = FileProvider.getUriForFile(
             this,
-            "com.example.android.fileprovider",
+            "com.ceron.stalker.fileprovider",
             imageFile
         )
         takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, userPhotoPath)
