@@ -1,6 +1,7 @@
 package com.ceron.stalker.activities
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
@@ -27,12 +28,11 @@ import com.google.firebase.Firebase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.storage
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AuthorizedActivity() {
 
     private val TAG = MainActivity::class.java.name
     private lateinit var binding: ActivityMainBinding
     private val PERM_LOCATION_CODE = 303
-    private var alerts = Alerts(this)
     private lateinit var position: Location
     private lateinit var fragment: MapsFragment
 
@@ -69,6 +69,23 @@ class MainActivity : AppCompatActivity() {
         }
         //Setup fragment
         fragment = supportFragmentManager.findFragmentById(R.id.mapFragment) as MapsFragment
+
+        //Set TopBar events
+        binding.topAppBar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.user_profile -> {
+                    startActivity(Intent(this, ProfileActivity::class.java))
+                    true
+                }
+
+                R.id.user_logout -> {
+                    logout()
+                    true
+                }
+
+                else -> false
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(
