@@ -72,7 +72,7 @@ class RegisterActivity : AppCompatActivity() {
                 shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
                     alerts.indefiniteSnackbar(
                         binding.root,
-                        "El permiso de Camara es necesario para usar esta actividad 😭"
+                        "Camera permission is required to use this activity 😭"
                     )
                 }
 
@@ -112,8 +112,8 @@ class RegisterActivity : AppCompatActivity() {
         } else binding.signupPhone.isErrorEnabled = false
         if (userPhotoPath == null) {
             alerts.showErrorDialog(
-                "Error al registrar usuario",
-                "Debe seleccionar una foto de perfil"
+                "Error registering user",
+                "You must select a profile picture"
             )
             return false
         }
@@ -146,19 +146,19 @@ class RegisterActivity : AppCompatActivity() {
                                 .addOnFailureListener { err ->
                                     enableFields()
                                     err.localizedMessage?.let {
-                                        alerts.showErrorDialog("Error al guardar el usuario", it)
+                                        alerts.showErrorDialog("Error saving user", it);
                                     }
                                 }
                         }.addOnFailureListener {
                             enableFields()
                             it.localizedMessage?.let {
-                                alerts.showErrorDialog("Error al guardar la foto de usuario", it)
+                                alerts.showErrorDialog("Error saving user photo", it);
                             }
                         }
                 } else {
                     enableFields()
                     task.exception?.localizedMessage?.let {
-                        alerts.showErrorDialog("Error al crear el usuario", it)
+                        alerts.showErrorDialog("Error creating user", it);
                     }
                 }
             }
@@ -179,7 +179,7 @@ class RegisterActivity : AppCompatActivity() {
         try {
             startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
         } catch (e: ActivityNotFoundException) {
-            e.localizedMessage?.let { alerts.showErrorDialog("Error al tomar la foto", it) }
+            e.localizedMessage?.let { alerts.showErrorDialog("Error taking photo", it) }
         }
     }
 
@@ -202,7 +202,7 @@ class RegisterActivity : AppCompatActivity() {
                 } else {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "Me acaban de negar los permisos de Camara 😭"
+                        "My camera permissions were just denied 😭"
                     )
                 }
             }
@@ -213,7 +213,7 @@ class RegisterActivity : AppCompatActivity() {
                 } else {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "Me acaban de negar los permisos de Galeria 😭"
+                        "My gallery permissions were just denied 😭"
                     )
                 }
             }
@@ -225,7 +225,7 @@ class RegisterActivity : AppCompatActivity() {
         when (requestCode) {
             REQUEST_IMAGE_CAPTURE -> {
                 if (resultCode == RESULT_OK) {
-                    alerts.shortSimpleSnackbar(binding.root, "Foto tomada correctamente")
+                    alerts.shortSimpleSnackbar(binding.root, "Photo taken successfully")
                     Log.d(TAG, "onActivityResult: ${userPhotoPath.toString()}")
                     binding.materialCardView.removeAllViews()
                     val imageView = ImageView(this)
@@ -238,7 +238,7 @@ class RegisterActivity : AppCompatActivity() {
                     imageView.adjustViewBounds = true
                     binding.materialCardView.addView(imageView)
                 } else {
-                    alerts.shortSimpleSnackbar(binding.root, "No se pudo tomar la foto")
+                    alerts.shortSimpleSnackbar(binding.root, "Failed to capture photo")
                 }
             }
 
@@ -246,7 +246,7 @@ class RegisterActivity : AppCompatActivity() {
                 if (resultCode == RESULT_OK) {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "Se selecciono un archivo de la galeria"
+                        "File selected from gallery"
                     )
                     if (data != null) {
                         userPhotoPath = data.data

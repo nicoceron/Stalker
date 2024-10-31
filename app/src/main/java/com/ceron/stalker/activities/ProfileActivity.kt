@@ -61,7 +61,7 @@ class ProfileActivity : AuthorizedActivity() {
                 shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
                     alerts.indefiniteSnackbar(
                         binding.root,
-                        "El permiso de Camara es necesario para usar esta actividad 😭"
+                        "Camera permission is required to use this activity 😭"
                     )
                 }
 
@@ -118,7 +118,7 @@ class ProfileActivity : AuthorizedActivity() {
                 } else {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "Me acaban de negar los permisos de Camara 😭"
+                        "My camera permissions were just denied 😭"
                     )
                 }
             }
@@ -129,7 +129,7 @@ class ProfileActivity : AuthorizedActivity() {
                 } else {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "Me acaban de negar los permisos de Galeria 😭"
+                        "My gallery permissions were just denied 😭"
                     )
                 }
             }
@@ -167,12 +167,12 @@ class ProfileActivity : AuthorizedActivity() {
                 .clear(binding.profileImage)
             when (requestCode) {
                 REQUEST_IMAGE_CAPTURE -> {
-                    alerts.shortSimpleSnackbar(binding.root, "Foto tomada correctamente")
+                    alerts.shortSimpleSnackbar(binding.root, "Photo taken successfully")
                 }
 
                 REQUEST_PICK -> {
                     outputPath = data?.data ?: outputPath
-                    alerts.shortSimpleSnackbar(binding.root, "Imagen seleccionada correctamente")
+                    alerts.shortSimpleSnackbar(binding.root, "Image selected successfully")
                 }
             }
             Glide.with(this)
@@ -185,11 +185,11 @@ class ProfileActivity : AuthorizedActivity() {
 
     fun validate(): Boolean {
         if (binding.profileName.editText?.text.toString().isEmpty()) {
-            binding.profileName.error = "El nombre es requerido"
+            binding.profileName.error = "Name is required"
             return false
         }
         if (binding.profilePhone.editText?.text.toString().isEmpty()) {
-            binding.profilePhone.error = "El telefono es requerido"
+            binding.profilePhone.error = "Phone number is required"
             return false
         }
         return true
@@ -204,12 +204,12 @@ class ProfileActivity : AuthorizedActivity() {
                 if (outputPath != null) {
                     refProfileImg.putFile(outputPath!!).addOnCompleteListener {
                         enableFields()
-                        alerts.shortSimpleSnackbar(binding.root, "Perfil actualizado correctamente")
+                        alerts.shortSimpleSnackbar(binding.root, "Profile updated successfully")
                     }.addOnFailureListener {
                         enableFields()
                         it.localizedMessage?.let {
                             alerts.showErrorDialog(
-                                "Error al actualizar la foto de perfil",
+                                "Error updating profile photo",
                                 it
                             )
                         }
@@ -217,15 +217,15 @@ class ProfileActivity : AuthorizedActivity() {
                 } else {
                     if (binding.profilePass.editText?.text.toString().isNotEmpty()) {
                         MaterialAlertDialogBuilder(this)
-                            .setTitle("Cambio de Contraseña")
-                            .setMessage("Esta seguro de cambiar la contraseña?")
-                            .setPositiveButton("Si") { dialog, _ ->
+                            .setTitle("Password Change")
+                            .setMessage("Are you sure you want to change the password?")
+                            .setPositiveButton("Yes") { dialog, _ ->
                                 currentUser?.updatePassword(binding.profilePass.editText?.text.toString())
                                     ?.addOnFailureListener { err ->
                                         enableFields()
                                         err.localizedMessage?.let {
                                             alerts.showErrorDialog(
-                                                "Error al actualizar la contraseña",
+                                                "Error updating password",
                                                 it
                                             )
                                         }
@@ -233,7 +233,7 @@ class ProfileActivity : AuthorizedActivity() {
                                         enableFields()
                                         alerts.shortSimpleSnackbar(
                                             binding.root,
-                                            "Perfil y contraseña actualizados correctamente"
+                                            "Profile and password updated successfully"
                                         )
                                         finish()
                                     }
@@ -244,7 +244,7 @@ class ProfileActivity : AuthorizedActivity() {
                             .show()
                     } else {
                         enableFields()
-                        alerts.shortSimpleSnackbar(binding.root, "Perfil actualizado correctamente")
+                        alerts.shortSimpleSnackbar(binding.root, "Profile updated successfully")
                         finish()
                     }
                 }
@@ -252,7 +252,7 @@ class ProfileActivity : AuthorizedActivity() {
                 enableFields()
                 it.localizedMessage?.let {
                     alerts.showErrorDialog(
-                        "Error al actualizar los datos",
+                        "Error updating data",
                         it
                     )
                 }

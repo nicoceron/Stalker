@@ -98,7 +98,7 @@ class LoginActivity : AppCompatActivity() {
         ).addOnCompleteListener(this) { task ->
             var msg: String = ""
             if (task.isSuccessful) {
-                msg = "Email enviado, revise su correo."
+                msg = "Email sent, please check your inbox."
             } else {
                 task.exception?.localizedMessage?.let {
                     msg = it

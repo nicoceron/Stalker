@@ -101,7 +101,7 @@ class MainActivity : AuthorizedActivity() {
                 } else {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "Me acaban de negar los permisos de Localizacion 😭"
+                        "My location permissions jut got denied 😭"
                     )
                 }
             }
