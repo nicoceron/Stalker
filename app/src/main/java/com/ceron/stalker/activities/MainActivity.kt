@@ -1,5 +1,6 @@
 package com.ceron.stalker.activities
 
+// Imports required for location services, UI management, Firebase, and other utilities
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -17,62 +18,63 @@ import com.ceron.stalker.R
 import com.ceron.stalker.databinding.ActivityMainBinding
 import com.ceron.stalker.fragments.MapsFragment
 import com.ceron.stalker.utils.Alerts
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.Granularity
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.firebase.Firebase
+import com.google.android.gms.location.*
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.storage.storage
+import com.google.firebase.storage.StorageReference
 
+// MainActivity responsible for handling location permissions, location tracking, and user interactions with the UI
 class MainActivity : AuthorizedActivity() {
 
     private val TAG = MainActivity::class.java.name
     private lateinit var binding: ActivityMainBinding
-    private val PERM_LOCATION_CODE = 303
-    private lateinit var position: Location
+    private val PERM_LOCATION_CODE = 303 // Permission code for location
+    private lateinit var position: Location // Tracks the user's current position
     private lateinit var fragment: MapsFragment
 
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var locationRequest: LocationRequest
-    private lateinit var locationCallback: LocationCallback
+    private lateinit var fusedLocationClient: FusedLocationProviderClient // Client for location updates
+    private lateinit var locationRequest: LocationRequest // Specifies parameters for location updates
+    private lateinit var locationCallback: LocationCallback // Callback to handle location updates
 
-    private var isTracking = false
-
+    private var isTracking = false // Tracks if location sharing is enabled
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Enable edge-to-edge layout for immersive UI
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Apply padding based on system bar insets for UI alignment
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        // Initialize location services and set up permissions
         setupLocation()
         when {
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED -> {
-                startLocationUpdates()
+                startLocationUpdates() // Start updates if permission is granted
             }
-
 
             else -> {
                 requestPermissions(
                     arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                     PERM_LOCATION_CODE
-                )
+                ) // Request permission if not granted
             }
         }
-        //Setup fragment
+
+        // Initialize map fragment
         fragment = supportFragmentManager.findFragmentById(R.id.mapFragment) as MapsFragment
 
-        //Set TopBar events
+        // Set up event listeners for top app bar actions
         binding.topAppBar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.user_profile -> {
@@ -81,15 +83,21 @@ class MainActivity : AuthorizedActivity() {
                 }
 
                 R.id.user_logout -> {
-                    logout()
+                    logout() // Handle user logout
                     true
                 }
 
                 else -> false
             }
         }
+        setupOnDisconnect()
     }
 
+    private fun setupOnDisconnect() {
+        refData.child("online").onDisconnect().setValue(false)
+    }
+
+    // Handle permission request result for location access
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -99,32 +107,36 @@ class MainActivity : AuthorizedActivity() {
         when (requestCode) {
             PERM_LOCATION_CODE -> {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    startLocationUpdates()
+                    startLocationUpdates() // Start updates if permission granted
                 } else {
                     alerts.shortSimpleSnackbar(
                         binding.root,
-                        "My location permissions jut got denied 😭"
-                    )
+                        "Location permissions were denied 😭"
+                    ) // Notify user if permission denied
                 }
             }
         }
     }
 
+    // Configures location request parameters and defines the callback for receiving location updates
     private fun setupLocation() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        // Define location request parameters for high accuracy and regular updates
         locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000).apply {
             setMinUpdateDistanceMeters(5F)
             setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
             setWaitForAccurateLocation(true)
         }.build()
 
+        // Callback to handle location updates and pass data to the map fragment
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.locations.forEach { location ->
                     position = location
-                    fragment.moveUser(location)
+                    fragment.moveUser(location) // Update user location on map
                     if (isTracking) {
-                        updateUserLocation(location)
+                        updateUserLocation(location) // Share location if tracking is enabled
                     }
                 }
             }
@@ -133,9 +145,13 @@ class MainActivity : AuthorizedActivity() {
 
     override fun onResume() {
         super.onResume()
-        startLocationUpdates()
+        startLocationUpdates() // Restart location updates when the activity resumes
+        if (isTracking) {
+            refData.child("online").setValue(true) // Update online status in Firebase
+        }
     }
 
+    // Starts location updates if permission is granted
     private fun startLocationUpdates() {
         if (ContextCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION
@@ -144,39 +160,36 @@ class MainActivity : AuthorizedActivity() {
             fusedLocationClient.requestLocationUpdates(
                 locationRequest, locationCallback, Looper.getMainLooper()
             )
-        } else {
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        stopLocationUpdates()
-    }
-
+    // Stops location updates to preserve battery
     private fun stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 
-
+    // Toggles location sharing and updates the Firebase database
     fun toggleLocationSharing(isSharing: Boolean) {
         isTracking = isSharing
         if (isTracking) {
-            startLocationUpdates()
-            refData.child("online").setValue(true)
+            startLocationUpdates() // Start updates if sharing is enabled
+            refData.child("online").setValue(true) // Update online status in Firebase
         } else {
-            stopLocationUpdates()
-            refData.child("online").setValue(false)
+            stopLocationUpdates() // Stop updates if sharing is disabled
+            refData.child("online").setValue(false) // Update online status in Firebase
         }
     }
 
+    // Updates user location in the Firebase database
     private fun updateUserLocation(location: Location) {
         val updates = mapOf(
             "latitude" to location.latitude,
             "longitude" to location.longitude
         )
-        refData.updateChildren(updates)
+        refData.updateChildren(updates) // Push location data to Firebase
     }
 
+    // Sets user online status in Firebase when activity starts
     override fun onStart() {
         super.onStart()
         if (isTracking) {
@@ -184,14 +197,23 @@ class MainActivity : AuthorizedActivity() {
         }
     }
 
-    override fun onStop() {
-        super.onStop()
+    // Sets user offline status in Firebase when activity is destroyed
+    override fun onDestroy() {
+        super.onDestroy()
+        stopLocationUpdates()
         if (isTracking) {
             refData.child("online").setValue(false)
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        stopLocationUpdates() // Stop location updates when the activity pauses
+    }
+
+    // Returns the current tracking state
     fun isTracking(): Boolean {
         return isTracking
     }
+
 }

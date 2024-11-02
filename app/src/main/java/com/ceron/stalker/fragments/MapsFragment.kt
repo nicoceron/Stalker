@@ -1,5 +1,6 @@
 package com.ceron.stalker.fragments
 
+// Imports required for Android functionality, Google Maps, Firebase, and third-party libraries like Glide
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -24,32 +25,19 @@ import com.ceron.stalker.databinding.FragmentMapsBinding
 import com.ceron.stalker.models.UserProfile
 import com.ceron.stalker.utils.Alerts
 import com.ceron.stalker.utils.GeocoderSearch
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptor
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.maps.model.Polyline
-import com.google.android.gms.maps.model.PolylineOptions
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
+import com.google.android.gms.maps.*
+import com.google.android.gms.maps.model.*
+import com.google.firebase.database.*
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 
-
+// Fragment class that implements a map view with location tracking and other user interactions
 class MapsFragment : Fragment(), SensorEventListener {
 
+    // Properties for UI binding, Firebase references, and map settings
     private lateinit var binding: FragmentMapsBinding
     private lateinit var alerts: Alerts
     private lateinit var geocoderSearch: GeocoderSearch
@@ -60,33 +48,29 @@ class MapsFragment : Fragment(), SensorEventListener {
     private var moveCamera = true
     private lateinit var userMarker: Marker
     private lateinit var position: LatLng
-    val colombia = LatLng(4.714, -74.03)
+    private val colombia = LatLng(4.714, -74.03)
     private var routePolyline: Polyline? = null
     private val routePoints: MutableList<LatLng> = mutableListOf()
-
     private val storageReference = FirebaseStorage.getInstance().reference
-
     private val otherUserMarkers = mutableMapOf<String, Marker>()
     private lateinit var database: DatabaseReference
     private var valueEventListener: ValueEventListener? = null
-
     private var pendingLocation: Location? = null
-
-
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        // Inflate the layout for this fragment
+        // Inflate layout and initialize map fragment
         binding = FragmentMapsBinding.inflate(inflater, container, false)
 
-        //Map setup
+        // Map setup, adding a marker for the user's location and configuring UI settings
         val callback = OnMapReadyCallback { googleMap ->
             gMap = googleMap
             gMap.uiSettings.isZoomControlsEnabled = false
             gMap.uiSettings.isCompassEnabled = true
 
+            // Initialize the user marker and set the default position
             userMarker = gMap.addMarker(
                 MarkerOptions().position(colombia).title("")
                     .icon(context?.let {
@@ -97,19 +81,25 @@ class MapsFragment : Fragment(), SensorEventListener {
                     })
             )!!
 
+            // If there's a pending location, move the user marker to it
             pendingLocation?.let {
                 moveUser(it)
                 pendingLocation = null
             }
 
+            // Move the camera to the default location
             gMap.moveCamera(CameraUpdateFactory.newLatLng(colombia))
 
+            // Add listeners for map interactions
             gMap.setOnMapLongClickListener { latLng -> addPoint(latLng) }
             routePolyline = gMap.addPolyline(PolylineOptions().width(5f).color(Color.RED))
         }
+
+        // Get the map fragment instance and set it up
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(callback)
 
+        // Initialize database and toggle location sharing functionality
         binding.switchFollowUser.isChecked = false
         database = FirebaseDatabase.getInstance().reference.child("users")
         binding.switchFollowUser.setOnCheckedChangeListener { _, isChecked ->
@@ -123,62 +113,18 @@ class MapsFragment : Fragment(), SensorEventListener {
             }
         }
 
-        //Address search
+        // Setup alert system and geocoding for location searches
         alerts = Alerts(this.requireContext())
         geocoderSearch = GeocoderSearch(this.requireContext())
 
-
-//        // searching stuff
-//        binding.searchField.editText?.setOnEditorActionListener { _, actionId, _ ->
-//            return@setOnEditorActionListener when (actionId) {
-//                EditorInfo.IME_ACTION_SEARCH -> {
-//                    val text = binding.searchField.editText?.text.toString()
-//                    val address: MutableList<Address>? = geocoderSearch.finPlacesByNameInRadius(
-//                        text,
-//                        LatLng(position.latitude, position.longitude)
-//                    )
-//
-//                    if (address.isNullOrEmpty()) {
-//                        alerts.shortToast("No se encontraron resultados")
-//                        false
-//                    } else {
-//                        alerts.shortToast("Se encontraron ${address.size} resultados")
-//
-//                        // Get the first result to move the camera to its location
-//                        val firstResult = address[0]
-//                        val firstLatLng = LatLng(firstResult.latitude, firstResult.longitude)
-//
-//                        // Move the camera to the first result
-//                        gMap.animateCamera(
-//                            CameraUpdateFactory.newLatLngZoom(
-//                                firstLatLng,
-//                                zoomLevel
-//                            )
-//                        )
-//
-//                        // Add markers for each result using the same logic as in addPoint()
-//                        address.forEach {
-//                            val latLng = LatLng(it.latitude, it.longitude)
-//                            addPoint(latLng)
-//                        }
-//
-//                        true
-//                    }
-//                }
-//
-//                else -> false
-//            }
-//        }
-
-        //Sensor
+        // Sensor setup to adjust map style based on light sensor input
         sensorManager = context?.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)!!
-
-
 
         return binding.root
     }
 
+    // Function to start listening for other users' location updates in the Firebase database
     private fun startListeningToOtherUsers() {
         database = FirebaseDatabase.getInstance().reference.child("users")
         valueEventListener = object : ValueEventListener {
@@ -187,13 +133,13 @@ class MapsFragment : Fragment(), SensorEventListener {
                     val userId = userSnapshot.key
                     val userProfile = userSnapshot.getValue(UserProfile::class.java)
 
+                    // If user is online, update their location marker on the map
                     if (userId != (activity as? MainActivity)?.currentUser?.uid && userProfile != null) {
                         if (userProfile.online) {
                             val latLng = LatLng(userProfile.latitude ?: 0.0, userProfile.longitude ?: 0.0)
-
                             val profileImageRef = storageReference.child("users/$userId/profile.jpg")
 
-                            // Glide para cargar la imagen de perfil
+                            // Load and display profile image as a marker using Glide
                             Glide.with(this@MapsFragment)
                                 .asBitmap()
                                 .load(profileImageRef)
@@ -220,11 +166,11 @@ class MapsFragment : Fragment(), SensorEventListener {
                                     }
 
                                     override fun onLoadCleared(placeholder: Drawable?) {
-                                        // Manejar la limpieza si es necesario
+                                        // Handle cleanup if needed
                                     }
                                 })
                         } else {
-                            // Remover marcador si el usuario está offline
+                            // Remove marker if the user goes offline
                             otherUserMarkers[userId]?.remove()
                             otherUserMarkers.remove(userId)
                         }
@@ -233,13 +179,15 @@ class MapsFragment : Fragment(), SensorEventListener {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Manejar error
+                // Handle error if needed
             }
         }
 
+        // Limit database listener to the first 100 entries for efficiency
         database.limitToFirst(100).addValueEventListener(valueEventListener!!)
     }
 
+    // Stop listening to other users' location updates
     private fun stopListeningToOtherUsers() {
         valueEventListener?.let {
             database.removeEventListener(it)
@@ -247,6 +195,7 @@ class MapsFragment : Fragment(), SensorEventListener {
         }
     }
 
+    // Remove markers representing other users from the map
     private fun clearOtherUserMarkers() {
         for (marker in otherUserMarkers.values) {
             marker.remove()
@@ -254,89 +203,79 @@ class MapsFragment : Fragment(), SensorEventListener {
         otherUserMarkers.clear()
     }
 
-
-
-    //From https://stackoverflow.com/questions/42365658/custom-marker-in-google-maps-in-android-with-vector-asset-icon
+    // Convert vector drawable to BitmapDescriptor for use as a custom map marker icon
     private fun bitmapDescriptorFromVector(context: Context, vectorResId: Int): BitmapDescriptor? {
         return ContextCompat.getDrawable(context, vectorResId)?.run {
             setBounds(0, 0, intrinsicWidth, intrinsicHeight)
-            val bitmap =
-                Bitmap.createBitmap(intrinsicWidth, intrinsicHeight, Bitmap.Config.ARGB_8888)
+            val bitmap = Bitmap.createBitmap(intrinsicWidth, intrinsicHeight, Bitmap.Config.ARGB_8888)
             draw(Canvas(bitmap))
             BitmapDescriptorFactory.fromBitmap(bitmap)
         }
     }
 
+    // Update the user's location on the map
     fun moveUser(location: Location) {
         if (this::userMarker.isInitialized) {
             val newPos = LatLng(location.latitude, location.longitude)
             position = newPos
             userMarker.position = newPos
 
-            // Mover la cámara si es necesario
+            // Optionally move the camera to follow the user
 //            if (moveCamera) {
 //                gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(newPos, zoomLevel))
 //            }
+
         } else {
-            // Almacenar la ubicación hasta que el marcador esté listo
+            // Store location if marker isn't ready yet
             pendingLocation = location
         }
     }
 
-
+    // Add a marker on the map at the specified LatLng position with address information
     private fun addPoint(latLng: LatLng) {
         val address = geocoderSearch.findAddressByPosition(latLng)
-        val addressText = address?.getAddressLine(0) ?: "Dirección no encontrada"
-        val snippetText =
-            "Dirección: $addressText\nLat: ${latLng.latitude}, Lng: ${latLng.longitude}"
+        val addressText = address?.getAddressLine(0) ?: "Address not found"
+        val snippetText = "Address: $addressText\nLat: ${latLng.latitude}, Lng: ${latLng.longitude}"
 
         val markerOptions = MarkerOptions()
             .position(latLng)
-            .title("Ubicación Seleccionada")
+            .title("Selected Location")
             .snippet(snippetText)
             .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
 
         gMap.addMarker(markerOptions)?.showInfoWindow()
     }
 
-
-//    private fun addStore(location: LatLng, title: String, desc: String) {
-//        gMap.addMarker(
-//            MarkerOptions().position(location).title(title).snippet(desc).icon(
-//                context?.let { bitmapDescriptorFromVector(it, R.drawable.direction) })
-//        )
-//    }
-
+    // Register the light sensor listener when fragment resumes
     override fun onResume() {
         super.onResume()
         sensorManager.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
     }
 
+    // Unregister the light sensor listener when fragment pauses
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(this)
     }
 
+    // Adjust map style based on light sensor readings
     override fun onSensorChanged(event: SensorEvent?) {
         if (this::gMap.isInitialized) {
             if (event!!.values[0] > 80) {
-                gMap.setMapStyle(
-                    context?.let { MapStyleOptions.loadRawResourceStyle(it, R.raw.map_day) })
+                gMap.setMapStyle(context?.let { MapStyleOptions.loadRawResourceStyle(it, R.raw.map_day) })
             } else {
-                gMap.setMapStyle(
-                    context?.let { MapStyleOptions.loadRawResourceStyle(it, R.raw.map_night) })
+                gMap.setMapStyle(context?.let { MapStyleOptions.loadRawResourceStyle(it, R.raw.map_night) })
             }
         }
     }
 
-    override fun onAccuracyChanged(p0: Sensor?, p1: Int) {
-        //Do nothing
-    }
+    // No action needed for accuracy changes
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
+    // Clean up listeners and markers when view is destroyed
     override fun onDestroyView() {
         super.onDestroyView()
         stopListeningToOtherUsers()
         clearOtherUserMarkers()
     }
-
 }
