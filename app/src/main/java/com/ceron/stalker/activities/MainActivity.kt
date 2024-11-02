@@ -40,6 +40,8 @@ class MainActivity : AuthorizedActivity() {
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
 
+    private var isTracking = false
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,10 +121,11 @@ class MainActivity : AuthorizedActivity() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.locations.forEach { location ->
-                    Log.i(TAG, "onLocationResult: $location")
-                    fragment.moveUser(location)
                     position = location
-
+                    fragment.moveUser(location)
+                    if (isTracking) {
+                        updateUserLocation(location)
+                    }
                 }
             }
         }
@@ -152,5 +155,43 @@ class MainActivity : AuthorizedActivity() {
 
     private fun stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+
+    fun toggleLocationSharing(isSharing: Boolean) {
+        isTracking = isSharing
+        if (isTracking) {
+            startLocationUpdates()
+            refData.child("online").setValue(true)
+        } else {
+            stopLocationUpdates()
+            refData.child("online").setValue(false)
+        }
+    }
+
+    private fun updateUserLocation(location: Location) {
+        val updates = mapOf(
+            "latitude" to location.latitude,
+            "longitude" to location.longitude
+        )
+        refData.updateChildren(updates)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (isTracking) {
+            refData.child("online").setValue(true)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isTracking) {
+            refData.child("online").setValue(false)
+        }
+    }
+
+    fun isTracking(): Boolean {
+        return isTracking
     }
 }

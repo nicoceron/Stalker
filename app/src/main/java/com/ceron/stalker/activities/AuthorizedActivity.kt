@@ -16,7 +16,7 @@ import com.google.firebase.database.database
 
 open class AuthorizedActivity : AppCompatActivity() {
     private var auth: FirebaseAuth = Firebase.auth
-    protected var currentUser = auth.currentUser
+    var currentUser = auth.currentUser
     protected lateinit var user: UserProfile
     protected val database = Firebase.database
     protected val refData = database.getReference("users/${currentUser?.uid}")

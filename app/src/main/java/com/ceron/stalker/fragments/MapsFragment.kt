@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -18,7 +19,9 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import androidx.core.content.ContextCompat
 import com.ceron.stalker.R
+import com.ceron.stalker.activities.MainActivity
 import com.ceron.stalker.databinding.FragmentMapsBinding
+import com.ceron.stalker.models.UserProfile
 import com.ceron.stalker.utils.Alerts
 import com.ceron.stalker.utils.GeocoderSearch
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -33,6 +36,17 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+
 
 class MapsFragment : Fragment(), SensorEventListener {
 
@@ -49,6 +63,16 @@ class MapsFragment : Fragment(), SensorEventListener {
     val colombia = LatLng(4.714, -74.03)
     private var routePolyline: Polyline? = null
     private val routePoints: MutableList<LatLng> = mutableListOf()
+
+    private val storageReference = FirebaseStorage.getInstance().reference
+
+    private val otherUserMarkers = mutableMapOf<String, Marker>()
+    private lateinit var database: DatabaseReference
+    private var valueEventListener: ValueEventListener? = null
+
+    private var pendingLocation: Location? = null
+
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -72,6 +96,12 @@ class MapsFragment : Fragment(), SensorEventListener {
                         )
                     })
             )!!
+
+            pendingLocation?.let {
+                moveUser(it)
+                pendingLocation = null
+            }
+
             gMap.moveCamera(CameraUpdateFactory.newLatLng(colombia))
 
             gMap.setOnMapLongClickListener { latLng -> addPoint(latLng) }
@@ -80,8 +110,17 @@ class MapsFragment : Fragment(), SensorEventListener {
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(callback)
 
+        binding.switchFollowUser.isChecked = false
+        database = FirebaseDatabase.getInstance().reference.child("users")
         binding.switchFollowUser.setOnCheckedChangeListener { _, isChecked ->
-            moveCamera = isChecked
+            if (isChecked) {
+                (activity as? MainActivity)?.toggleLocationSharing(true)
+                startListeningToOtherUsers()
+            } else {
+                (activity as? MainActivity)?.toggleLocationSharing(false)
+                stopListeningToOtherUsers()
+                clearOtherUserMarkers()
+            }
         }
 
         //Address search
@@ -135,8 +174,87 @@ class MapsFragment : Fragment(), SensorEventListener {
         sensorManager = context?.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)!!
 
+
+
         return binding.root
     }
+
+    private fun startListeningToOtherUsers() {
+        database = FirebaseDatabase.getInstance().reference.child("users")
+        valueEventListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (userSnapshot in snapshot.children) {
+                    val userId = userSnapshot.key
+                    val userProfile = userSnapshot.getValue(UserProfile::class.java)
+
+                    if (userId != (activity as? MainActivity)?.currentUser?.uid && userProfile != null) {
+                        if (userProfile.online) {
+                            val latLng = LatLng(userProfile.latitude ?: 0.0, userProfile.longitude ?: 0.0)
+
+                            val profileImageRef = storageReference.child("users/$userId/profile.jpg")
+
+                            // Glide para cargar la imagen de perfil
+                            Glide.with(this@MapsFragment)
+                                .asBitmap()
+                                .load(profileImageRef)
+                                .circleCrop()
+                                .override(75, 75)
+                                .into(object : CustomTarget<Bitmap>() {
+                                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                                        val markerIcon = BitmapDescriptorFactory.fromBitmap(resource)
+
+                                        if (otherUserMarkers.containsKey(userId)) {
+                                            otherUserMarkers[userId]?.apply {
+                                                position = latLng
+                                                setIcon(markerIcon)
+                                            }
+                                        } else {
+                                            val marker = gMap.addMarker(
+                                                MarkerOptions()
+                                                    .position(latLng)
+                                                    .title(userProfile.name)
+                                                    .icon(markerIcon)
+                                            )
+                                            otherUserMarkers[userId!!] = marker!!
+                                        }
+                                    }
+
+                                    override fun onLoadCleared(placeholder: Drawable?) {
+                                        // Manejar la limpieza si es necesario
+                                    }
+                                })
+                        } else {
+                            // Remover marcador si el usuario está offline
+                            otherUserMarkers[userId]?.remove()
+                            otherUserMarkers.remove(userId)
+                        }
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Manejar error
+            }
+        }
+
+        database.limitToFirst(100).addValueEventListener(valueEventListener!!)
+    }
+
+    private fun stopListeningToOtherUsers() {
+        valueEventListener?.let {
+            database.removeEventListener(it)
+            valueEventListener = null
+        }
+    }
+
+    private fun clearOtherUserMarkers() {
+        for (marker in otherUserMarkers.values) {
+            marker.remove()
+        }
+        otherUserMarkers.clear()
+    }
+
+
 
     //From https://stackoverflow.com/questions/42365658/custom-marker-in-google-maps-in-android-with-vector-asset-icon
     private fun bitmapDescriptorFromVector(context: Context, vectorResId: Int): BitmapDescriptor? {
@@ -150,18 +268,21 @@ class MapsFragment : Fragment(), SensorEventListener {
     }
 
     fun moveUser(location: Location) {
-        val newPos = LatLng(location.latitude, location.longitude)
-        position = newPos
-        userMarker.position = newPos
+        if (this::userMarker.isInitialized) {
+            val newPos = LatLng(location.latitude, location.longitude)
+            position = newPos
+            userMarker.position = newPos
 
-        // Add position to route
-        routePoints.add(newPos)
-        routePolyline?.points = routePoints
-
-        if (moveCamera) {
-            gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(newPos, zoomLevel))
+            // Mover la cámara si es necesario
+//            if (moveCamera) {
+//                gMap.animateCamera(CameraUpdateFactory.newLatLngZoom(newPos, zoomLevel))
+//            }
+        } else {
+            // Almacenar la ubicación hasta que el marcador esté listo
+            pendingLocation = location
         }
     }
+
 
     private fun addPoint(latLng: LatLng) {
         val address = geocoderSearch.findAddressByPosition(latLng)
@@ -211,4 +332,11 @@ class MapsFragment : Fragment(), SensorEventListener {
     override fun onAccuracyChanged(p0: Sensor?, p1: Int) {
         //Do nothing
     }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        stopListeningToOtherUsers()
+        clearOtherUserMarkers()
+    }
+
 }
